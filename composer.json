@@ -14,7 +14,8 @@
     "require-dev": {
         "opis/json-schema": "^2.6",
         "phpstan/phpstan": "^2",
-        "phpunit/phpunit": "^12.5.33"
+        "phpunit/phpunit": "^11.5.50 || ^12.5.33",
+        "psr/log": "^3.0"
     },
     "suggest": {
         "psr/log": "Gdy host poda logger, SDK pisze na poziomie debug."

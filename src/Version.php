@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Vulqen\Sdk;
 
 /**
- * Wersja paczki. Wysyłka zdarzeń dochodzi w Fazie 4.
+ * Wersja paczki, trafia do sdk.version, gdy host nie poda własnej.
  */
 final class Version
 {

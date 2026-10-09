@@ -1,0 +1,94 @@
+name: "TESTY | e2e z serwerem"
+
+# Job e2e z 41: serwer z checkoutu vulqen (rejestru obrazów nie ma do Q-002), SDK wysyła envelope,
+# ClickHouse ma wiersz. Biegnie nocą i ręcznie, bo stawia cały stack Compose.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: "Gałąź albo tag serwera"
+        default: main
+
+env:
+  VULQEN_SERVER_REF: ${{ inputs.server_ref || 'main' }}
+  COMPOSE: docker compose -f docker-compose.yml -f docker-compose.dev.yml
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout server ${{ env.VULQEN_SERVER_REF }}
+        uses: actions/checkout@v4
+        with:
+          repository: DeveloperLancer/vulqen
+          ref: ${{ env.VULQEN_SERVER_REF }}
+          token: ${{ secrets.VULQEN_SPEC_TOKEN }}
+          path: .server/vulqen
+
+      - name: Start server
+        working-directory: .server/vulqen
+        run: |
+          echo "127.0.0.1 ingest.localhost" | sudo tee -a /etc/hosts
+          $COMPOSE up -d --build
+          for i in $(seq 1 90); do
+            if $COMPOSE exec -T php php bin/console about >/dev/null 2>&1; then break; fi
+            sleep 5
+          done
+          $COMPOSE exec -T php php bin/console doctrine:migrations:migrate --no-interaction
+          $COMPOSE exec -T php php bin/console vulqen:clickhouse:migrate
+          $COMPOSE restart ingest-worker
+
+      - name: Register account and project
+        id: project
+        run: |
+          device=$(cat /proc/sys/kernel/random/uuid)
+          token=$(curl -sf -X POST http://localhost:8100/v1/auth/register \
+            -H 'Content-Type: application/json' -H "X-Vulqen-Device-Id: $device" \
+            -d "{\"email\":\"e2e-$device@example.com\",\"password\":\"Haslo123e2e\",\"display_name\":\"E2E\",\"organization_name\":\"E2E\",\"aud\":\"dashboard\"}" \
+            | jq -r .access_token)
+          org=$(curl -sf http://localhost:8100/v1/users/me -H "Authorization: Bearer $token" | jq -r '.organizations[0].id')
+          project=$(curl -sf -X POST http://localhost:8100/v1/projects \
+            -H 'Content-Type: application/json' -H "Authorization: Bearer $token" \
+            -d "{\"organization_id\":\"$org\",\"name\":\"SDK e2e\"}")
+          echo "::add-mask::$(echo "$project" | jq -r .ingest_key.secret)"
+          echo "id=$(echo "$project" | jq -r .id)" >> "$GITHUB_OUTPUT"
+          echo "dsn=$(echo "$project" | jq -r .ingest_key.dsn)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: curl, mbstring, zlib
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer update --no-interaction --prefer-dist
+
+      - name: Send envelope through SDK
+        env:
+          VULQEN_E2E_DSN: ${{ steps.project.outputs.dsn }}
+          VULQEN_SPEC_DIR: ${{ github.workspace }}/.server/vulqen/spec
+        run: vendor/bin/phpunit --group e2e
+
+      - name: Row in ClickHouse
+        run: |
+          query="SELECT count() FROM vulqen.transactions WHERE project_id = '${{ steps.project.outputs.id }}' AND name = 'e2e_sdk'"
+          for i in $(seq 1 30); do
+            count=$(curl -sf "http://127.0.0.1:8124/?user=vulqen&password=vulqen" --data-binary "$query" || echo 0)
+            if [ "$count" -ge 1 ]; then echo "transactions: $count"; exit 0; fi
+            sleep 2
+          done
+          echo "Brak wiersza e2e_sdk w ClickHouse." >&2
+          exit 1
+
+      - name: Server logs on failure
+        if: failure()
+        working-directory: .server/vulqen
+        run: $COMPOSE logs --tail=200 php ingest-worker nginx
