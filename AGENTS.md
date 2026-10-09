@@ -22,7 +22,7 @@ Paczka powstaje jako szkielet w Fazie 1. Wysyłka i model zdarzeń wchodzą w Fa
 - Żadna metoda publiczna nie wypuszcza `\Throwable` do hosta.
 - SDK nie instrumentuje własnego wywołania na ingest. To ograniczenie egzekwuje bundle; SDK nie dokleja śladu do transportu.
 - Zmiana pól JSON zaczyna się w `vulqen-docs` i w `vulqen/spec`, a serwer je przyjmuje, zanim ta paczka zacznie je wysyłać.
-- Fixtures bierz lokalnie z `../vulqen/spec`, gdy katalog istnieje, a w CI z tagu `VULQEN_SPEC_REF`.
+- Fixtures bierz lokalnie z `../vulqen/spec`, gdy katalog istnieje. W CI z `tests/fixtures/spec` zgodnego z `VULQEN_SPEC_REF`. Przy podbiciu tagu odśwież kopię.
 - `composer.json` nie zawiera repozytorium typu `path`.
 - Katalog `.idea/` nie wchodzi do gita.
 

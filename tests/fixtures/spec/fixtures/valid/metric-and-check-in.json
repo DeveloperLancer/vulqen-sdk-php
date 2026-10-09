@@ -1,0 +1,24 @@
+{
+    "v": 1,
+    "sdk": { "name": "vulqen-agent", "version": "0.1.0" },
+    "sent_at": "2026-10-08T12:22:01.000Z",
+    "environment": "prod",
+    "server_name": "web-01",
+    "items": [
+        {
+            "type": "metric",
+            "name": "phpfpm.active",
+            "kind": "gauge",
+            "value": 4,
+            "at": "2026-10-08T12:22:01.000Z",
+            "attrs": { "pool": "www" }
+        },
+        {
+            "type": "check_in",
+            "monitor": "santoria:offer:close-expired",
+            "status": "ok",
+            "duration_ms": 1200,
+            "at": "2026-10-08T12:22:01.000Z"
+        }
+    ]
+}

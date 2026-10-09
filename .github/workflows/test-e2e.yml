@@ -23,6 +23,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Require VULQEN_SPEC_TOKEN
+        env:
+          VULQEN_SPEC_TOKEN: ${{ secrets.VULQEN_SPEC_TOKEN }}
+        run: |
+          if [ -z "$VULQEN_SPEC_TOKEN" ]; then
+            echo "Brak sekretu VULQEN_SPEC_TOKEN z odczytem DeveloperLancer/vulqen."
+            exit 1
+          fi
+
       - name: Checkout server ${{ env.VULQEN_SERVER_REF }}
         uses: actions/checkout@v4
         with:

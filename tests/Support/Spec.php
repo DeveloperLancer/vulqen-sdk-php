@@ -8,7 +8,7 @@ use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 
 /**
- * Schema z vulqen/spec (05, D-027): lokalnie ../vulqen/spec, w CI katalog z VULQEN_SPEC_DIR.
+ * Schema z vulqen/spec (05, D-027, D-071): VULQEN_SPEC_DIR, lokalnie ../vulqen/spec, kopia tests/fixtures/spec.
  */
 final class Spec
 {
@@ -21,6 +21,7 @@ final class Spec
         $candidates = [
             (string) getenv('VULQEN_SPEC_DIR'),
             dirname(__DIR__, 3).'/vulqen/spec',
+            dirname(__DIR__).'/fixtures/spec',
         ];
         foreach ($candidates as $candidate) {
             if ($candidate !== '' && is_file($candidate.'/envelope.v1.schema.json')) {
@@ -28,7 +29,7 @@ final class Spec
             }
         }
 
-        throw new \RuntimeException('Brak spec: ustaw VULQEN_SPEC_DIR albo trzymaj ../vulqen obok tego repozytorium.');
+        throw new \RuntimeException('Brak spec: ustaw VULQEN_SPEC_DIR, trzymaj ../vulqen obok tego repozytorium albo tests/fixtures/spec.');
     }
 
     /**

@@ -37,4 +37,4 @@ vendor/bin/phpunit
 composer phpstan
 ```
 
-Test kontraktu czyta `../vulqen/spec`, gdy katalog istnieje, albo katalog z `VULQEN_SPEC_DIR`. Test e2e biegnie tylko z `VULQEN_E2E_DSN` (workflow `test-e2e.yml`).
+Test kontraktu czyta `../vulqen/spec`, gdy katalog istnieje, potem `tests/fixtures/spec` (kopia tagu `VULQEN_SPEC_REF`), albo katalog z `VULQEN_SPEC_DIR`. Test e2e biegnie tylko z `VULQEN_E2E_DSN` (workflow `test-e2e.yml`).

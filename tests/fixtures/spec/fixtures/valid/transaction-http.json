@@ -1,0 +1,40 @@
+{
+    "v": 1,
+    "sdk": { "name": "vulqen-symfony", "version": "0.4.0" },
+    "sent_at": "2026-10-08T12:22:01.123Z",
+    "environment": "prod",
+    "release": "a1b2c3d",
+    "server_name": "web-01",
+    "items": [
+        {
+            "type": "transaction",
+            "id": "01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b",
+            "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "span_id": "00f067aa0ba902b7",
+            "name": "app_order_show",
+            "op": "http.server",
+            "started_at": "2026-10-08T12:22:01.001Z",
+            "duration_ms": 182.4,
+            "outcome": "ok",
+            "http_status": 200,
+            "memory_peak_bytes": 25165824,
+            "cpu_ms": 41.2,
+            "spans_truncated": false,
+            "spans": [
+                {
+                    "span_id": "0af7651916cd43dd",
+                    "parent_span_id": "00f067aa0ba902b7",
+                    "op": "db.query",
+                    "description": "SELECT * FROM orders WHERE id = ?",
+                    "started_at": "2026-10-08T12:22:01.020Z",
+                    "duration_ms": 3.4,
+                    "attrs": {
+                        "db.system": "mysql",
+                        "db.statement": "SELECT * FROM orders WHERE id = ?",
+                        "db.rows": 1
+                    }
+                }
+            ]
+        }
+    ]
+}

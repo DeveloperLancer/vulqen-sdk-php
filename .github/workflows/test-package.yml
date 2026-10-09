@@ -22,16 +22,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Repozytorium serwera jest prywatne: GITHUB_TOKEN tej paczki go nie widzi.
-      # VULQEN_SPEC_TOKEN to token z prawem odczytu DeveloperLancer/vulqen.
-      - name: Checkout spec ${{ env.VULQEN_SPEC_REF }}
-        uses: actions/checkout@v4
-        with:
-          repository: DeveloperLancer/vulqen
-          ref: ${{ env.VULQEN_SPEC_REF }}
-          token: ${{ secrets.VULQEN_SPEC_TOKEN }}
-          path: .spec/vulqen
-          sparse-checkout: spec
+      # Źródło prawdy jest w vulqen/spec (D-027). CI nie klonuje prywatnego
+      # serwera: puste VULQEN_SPEC_TOKEN wyłącza token w checkout@v4.
+      # Kopia w tests/fixtures/spec musi być z tagu VULQEN_SPEC_REF (D-071).
+      - name: Guard pinned spec ${{ env.VULQEN_SPEC_REF }}
+        run: test -f tests/fixtures/spec/envelope.v1.schema.json
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -52,7 +47,7 @@ jobs:
 
       - name: Run PHPUnit
         env:
-          VULQEN_SPEC_DIR: ${{ github.workspace }}/.spec/vulqen/spec
+          VULQEN_SPEC_DIR: ${{ github.workspace }}/tests/fixtures/spec
         run: vendor/bin/phpunit
 
       - name: Run PHPStan

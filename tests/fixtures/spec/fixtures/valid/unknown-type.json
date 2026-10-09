@@ -1,0 +1,12 @@
+{
+    "v": 1,
+    "sdk": { "name": "vulqen-symfony", "version": "0.9.0" },
+    "sent_at": "2026-10-08T12:22:01.123Z",
+    "environment": "staging",
+    "items": [
+        {
+            "type": "profile",
+            "samples": 3
+        }
+    ]
+}
