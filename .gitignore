@@ -5,3 +5,4 @@
 /phpstan.neon
 /coverage/
 /composer.lock
+/.spec/

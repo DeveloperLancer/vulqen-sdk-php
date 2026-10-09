@@ -12,6 +12,7 @@
         "ext-mbstring": "*"
     },
     "require-dev": {
+        "opis/json-schema": "^2.6",
         "phpstan/phpstan": "^2",
         "phpunit/phpunit": "^12.5.33"
     },
