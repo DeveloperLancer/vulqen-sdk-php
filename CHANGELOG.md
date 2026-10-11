@@ -2,6 +2,17 @@
 
 Format z [05-repozytoria-i-wydania.md](https://github.com/DeveloperLancer/vulqen-docs/blob/main/plan/05-repozytoria-i-wydania.md): po co zmiana i czy upgrade wymaga kroku.
 
+## 0.2.0
+
+Licznik każdej transakcji schodzi zawsze, a pełny ślad tylko z próbki, z błędu albo z progu czasu (Faza 7).
+
+- `sample_rate`, `slow_ms`, `traces_enabled`, `sql_enabled`, `sql_bindings`, `request_body` i `max_spans` z bloku `config`. SDK stosuje blok, gdy `version` jest nowsza.
+- Osobny bufor `stats`. Czyszczenie dopiero po 202. 429 i otwarty obwód porzucają ślady, liczniki zostają.
+- Dziecko z `traceparent` o fladze `00` nie losuje własnego śladu. Błąd i próg czasu i tak wysyłają ślad z `parent_span_id`.
+- Opcjonalne `http.request.body`, obcięte do 8 KiB po scrubbingu.
+
+Kroki przy upgrade: serwer z Fazy 7, bo envelope niesie element `stats`.
+
 ## 0.1.0
 
 Pierwsze wydanie z wysyłką, żeby bundle Symfony mógł raportować żądania HTTP, wyjątki i SQL (Faza 4).

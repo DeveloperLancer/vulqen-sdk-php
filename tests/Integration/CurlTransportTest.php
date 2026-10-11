@@ -60,7 +60,7 @@ final class CurlTransportTest extends TestCase
         @unlink(self::log());
     }
 
-    public function test202ZwracaConfigIWysylaGzipZKluczemWNaglowku(): void
+    public function test202ReturnsConfigAndSendsGzipWithTheKeyInTheHeader(): void
     {
         $result = (new CurlTransport())->send($this->dsn('0202'), '{"v":1,"items":[]}');
 
@@ -74,7 +74,7 @@ final class CurlTransportTest extends TestCase
         self::assertSame('{"v":1,"items":[]}', $requests[0]['body']);
     }
 
-    public function test429NiesieRetryAfterBezPonowienia(): void
+    public function test429CarriesRetryAfterWithoutARetry(): void
     {
         $result = (new CurlTransport())->send($this->dsn('0429'), '{}');
 
@@ -83,7 +83,7 @@ final class CurlTransportTest extends TestCase
         self::assertCount(1, self::requests());
     }
 
-    public function test500NieJestPonawiane(): void
+    public function test500IsNotRetried(): void
     {
         $result = (new CurlTransport())->send($this->dsn('0500'), '{}');
 
@@ -92,7 +92,7 @@ final class CurlTransportTest extends TestCase
         self::assertCount(1, self::requests());
     }
 
-    public function testTimeoutDajeStatusZeroIJednoPonowienie(): void
+    public function testTimeoutYieldsStatusZeroAndOneRetry(): void
     {
         $silent = stream_socket_server('tcp://127.0.0.1:0');
         self::assertNotFalse($silent);
@@ -100,7 +100,7 @@ final class CurlTransportTest extends TestCase
 
         $started = microtime(true);
         $result = (new CurlTransport(200, 300))->send(
-            Dsn::parse('http://vq_test_sekret@'.$address.'/'.self::PROJECT.'0202') ?? self::fail('DSN'),
+            Dsn::parse('vulqen://vq_test_sekret@'.$address.'/'.self::PROJECT.'0202?insecure') ?? self::fail('DSN'),
             '{}',
         );
         $elapsed = microtime(true) - $started;
@@ -111,11 +111,11 @@ final class CurlTransportTest extends TestCase
         self::assertLessThan(1.5, $elapsed);
     }
 
-    public function testZamknietyPortKonczySieSzybko(): void
+    public function testAClosedPortFailsFast(): void
     {
         $started = microtime(true);
         $result = (new CurlTransport())->send(
-            Dsn::parse('http://vq_test_sekret@127.0.0.1:'.self::freePort().'/'.self::PROJECT.'0202') ?? self::fail('DSN'),
+            Dsn::parse('vulqen://vq_test_sekret@127.0.0.1:'.self::freePort().'/'.self::PROJECT.'0202?insecure') ?? self::fail('DSN'),
             '{}',
         );
 
@@ -126,7 +126,7 @@ final class CurlTransportTest extends TestCase
 
     private function dsn(string $mode): Dsn
     {
-        return Dsn::parse(sprintf('http://vq_test_sekret@127.0.0.1:%d/%s%s', self::$port, self::PROJECT, $mode)) ?? self::fail('DSN');
+        return Dsn::parse(sprintf('vulqen://vq_test_sekret@127.0.0.1:%d/%s%s?insecure', self::$port, self::PROJECT, $mode)) ?? self::fail('DSN');
     }
 
     /**

@@ -1,0 +1,24 @@
+{
+    "v": 1,
+    "sdk": { "name": "vulqen-symfony", "version": "0.2.0" },
+    "sent_at": "2026-10-08T12:22:10.000Z",
+    "environment": "prod",
+    "items": [
+        {
+            "type": "stats",
+            "id": "not-a-uuid",
+            "period_start": "2026-10-08T12:22:00.000Z",
+            "period_end": "2026-10-08T12:22:10.000Z",
+            "transactions": [
+                {
+                    "name": "app_order_show",
+                    "op": "http.server",
+                    "outcome": "ok",
+                    "count": 1,
+                    "duration_ms_sum": 10,
+                    "buckets": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                }
+            ]
+        }
+    ]
+}

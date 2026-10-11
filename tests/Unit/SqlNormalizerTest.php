@@ -11,7 +11,7 @@ use Vulqen\Sdk\SqlNormalizer;
 final class SqlNormalizerTest extends TestCase
 {
     #[DataProvider('cases')]
-    public function testNormalizuje(string $sql, string $expected): void
+    public function testNormalizes(string $sql, string $expected): void
     {
         self::assertSame($expected, SqlNormalizer::normalize($sql));
     }
@@ -44,7 +44,7 @@ final class SqlNormalizerTest extends TestCase
         ];
     }
 
-    public function testDwaLiteralyDajaJedenTekst(): void
+    public function testTwoLiteralsYieldOneText(): void
     {
         self::assertSame(
             SqlNormalizer::normalize("SELECT * FROM orders WHERE id = 1 AND status = 'new'"),
@@ -52,7 +52,7 @@ final class SqlNormalizerTest extends TestCase
         );
     }
 
-    public function testDlugiSqlJestObcinany(): void
+    public function testLongSqlIsTruncated(): void
     {
         $sql = 'SELECT '.implode(', ', array_fill(0, 1000, 'column_name')).' FROM t';
 

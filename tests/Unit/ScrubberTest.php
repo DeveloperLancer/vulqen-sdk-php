@@ -11,7 +11,7 @@ use Vulqen\Sdk\Scrubber;
 final class ScrubberTest extends TestCase
 {
     #[DataProvider('messages')]
-    public function testCzysciKomunikat(string $message, string $expected): void
+    public function testScrubsTheMessage(string $message, string $expected): void
     {
         self::assertSame($expected, Scrubber::scrub($message));
     }
@@ -32,7 +32,7 @@ final class ScrubberTest extends TestCase
         ];
     }
 
-    public function testNaglowkiZListy17SaZamaskowane(): void
+    public function testHeadersFromList17AreMasked(): void
     {
         $headers = Scrubber::headers([
             'Authorization' => 'Bearer x',

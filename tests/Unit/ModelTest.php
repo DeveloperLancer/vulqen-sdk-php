@@ -11,7 +11,7 @@ use Vulqen\Sdk\Model\Transaction;
 
 final class ModelTest extends TestCase
 {
-    public function testLimitSpanowUstawiaSpansTruncated(): void
+    public function testTheSpanLimitSetsSpansTruncated(): void
     {
         $transaction = new Transaction('app_order_show', Transaction::OP_HTTP, 1_791_462_121.0, 2);
 
@@ -29,7 +29,7 @@ final class ModelTest extends TestCase
         self::assertSame(200, $item['http_status']);
     }
 
-    public function testNiezamknietySpanKonczySieZTransakcja(): void
+    public function testAnUnclosedSpanEndsWithTheTransaction(): void
     {
         $transaction = new Transaction('t', Transaction::OP_HTTP, 1_791_462_121.0, 10);
         $span = $transaction->startSpan('db.query', 'SELECT ?', [], 1_791_462_121.1);
@@ -41,7 +41,7 @@ final class ModelTest extends TestCase
         self::assertNull($transaction->startSpan('db.query', 'po końcu'));
     }
 
-    public function testHttpStatusTylkoPrzyHttpServer(): void
+    public function testHttpStatusOnlyForHttpServer(): void
     {
         $command = new Transaction('app:sync', 'console.command', 1_791_462_121.0, 10);
         $command->finish(1_791_462_122.0);
@@ -54,7 +54,7 @@ final class ModelTest extends TestCase
         self::assertSame(500, $http->toArray()['http_status']);
     }
 
-    public function testPustyAttrsJestObiektemJson(): void
+    public function testEmptyAttrsIsAJsonObject(): void
     {
         $transaction = new Transaction('t', Transaction::OP_HTTP, 1_791_462_121.0, 10);
         $transaction->startSpan('db.query', 'SELECT ?');
@@ -63,7 +63,7 @@ final class ModelTest extends TestCase
         self::assertStringContainsString('"attrs":{}', (string) json_encode($transaction->toArray()));
     }
 
-    public function testKlatkiOdMiejscaRzucenia(): void
+    public function testFramesFromTheThrowSite(): void
     {
         $exception = $this->throwInApp();
         $data = ExceptionData::fromThrowable($exception, dirname(__DIR__, 2));
@@ -77,7 +77,7 @@ final class ModelTest extends TestCase
         self::assertSame($exception->getLine(), $first->line);
     }
 
-    public function testKlatkaVendorNieJestInApp(): void
+    public function testAVendorFrameIsNotInApp(): void
     {
         self::assertFalse(Frame::at('/app/vendor/symfony/http-kernel/Kernel.php', 10, null, '/app')->inApp);
         self::assertFalse(Frame::at('C:\\app\\vendor\\x\\A.php', 10, null, 'C:\\app')->inApp);
@@ -86,7 +86,7 @@ final class ModelTest extends TestCase
         self::assertSame(Frame::INTERNAL, Frame::at(null, 0, ['function' => 'array_map'], '/app')->file);
     }
 
-    public function testPreviousDoGlebokosciPieciuIScrubbing(): void
+    public function testPreviousUpToDepthFiveAndScrubbing(): void
     {
         $exception = new \LogicException('level 0 password=x');
         for ($level = 1; $level <= 8; ++$level) {

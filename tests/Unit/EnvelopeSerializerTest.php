@@ -14,7 +14,7 @@ use Vulqen\Sdk\Tests\Support\Spec;
 
 final class EnvelopeSerializerTest extends TestCase
 {
-    public function testEnvelopePrzechodziSchemaSpec(): void
+    public function testEnvelopePassesTheSpecSchema(): void
     {
         $transaction = new Transaction('app_order_show', Transaction::OP_HTTP, 1_791_462_121.001, 1000);
         $span = $transaction->startSpan('db.query', 'SELECT * FROM orders WHERE id = ?', ['db.system' => 'mysql', 'db.rows' => 1], 1_791_462_121.02);
@@ -40,7 +40,7 @@ final class EnvelopeSerializerTest extends TestCase
         self::assertCount(2, $document->items);
     }
 
-    public function testPaczkiMajaNajwyzejStoElementow(): void
+    public function testBatchesHaveAtMostOneHundredItems(): void
     {
         $items = [];
         for ($i = 0; $i < 250; ++$i) {
@@ -54,7 +54,7 @@ final class EnvelopeSerializerTest extends TestCase
         self::assertSame([100, 100, 50], array_map(static fn (string $json): int => count(json_decode($json, true)['items']), $envelopes));
     }
 
-    public function testPaczkaMiesciSiePodLimitemBajtow(): void
+    public function testABatchFitsUnderTheByteLimit(): void
     {
         $big = '"'.str_repeat('a', 1_000_000).'"';
         $envelopes = (new EnvelopeSerializer(new Options()))->envelopes([$big, $big, $big, $big], 1_791_462_122.0);
@@ -65,7 +65,7 @@ final class EnvelopeSerializerTest extends TestCase
         }
     }
 
-    public function testNazwaSrodowiskaJestDopasowanaDoWzorca(): void
+    public function testTheEnvironmentNameMatchesThePattern(): void
     {
         self::assertSame('prod-eu-1', (new Options(environment: ' Prod EU.1 '))->environment);
         self::assertSame(Options::OTHER_ENVIRONMENT, (new Options(environment: '!!!'))->environment);

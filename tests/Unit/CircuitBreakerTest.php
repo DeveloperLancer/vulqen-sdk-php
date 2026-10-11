@@ -28,7 +28,7 @@ final class CircuitBreakerTest extends TestCase
         }
     }
 
-    public function testTrzyPorazkiOtwierajaObwodNa30Sekund(): void
+    public function testThreeFailuresOpenTheCircuitFor30Seconds(): void
     {
         $breaker = new CircuitBreaker(new FileStore($this->directory), 'http://ingest/x');
         $now = 1_000.0;
@@ -42,7 +42,7 @@ final class CircuitBreakerTest extends TestCase
         self::assertFalse($breaker->isOpen($now + 31));
     }
 
-    public function testSukcesZerujeLicznik(): void
+    public function testSuccessResetsTheCounter(): void
     {
         $breaker = new CircuitBreaker(new FileStore($this->directory), 'http://ingest/x');
 
@@ -54,7 +54,7 @@ final class CircuitBreakerTest extends TestCase
         self::assertFalse($breaker->isOpen(1_000.0));
     }
 
-    public function testStanJestWspoldzielonyPrzezPlik(): void
+    public function testStateIsSharedThroughAFile(): void
     {
         (new CircuitBreaker(new FileStore($this->directory), 'http://ingest/x'))->openFor(10, 1_000.0);
 
@@ -62,7 +62,7 @@ final class CircuitBreakerTest extends TestCase
         self::assertFalse((new CircuitBreaker(new FileStore($this->directory), 'http://ingest/inny'))->isOpen(1_005.0));
     }
 
-    public function testRetryAfterMaksymalnie60Sekund(): void
+    public function testRetryAfterIsAtMost60Seconds(): void
     {
         $breaker = new CircuitBreaker(new FileStore($this->directory), 'http://ingest/x');
 
@@ -74,7 +74,7 @@ final class CircuitBreakerTest extends TestCase
         self::assertTrue($breaker->isOpen(2_059.0));
     }
 
-    public function testNieczytelnyKatalogNieRzuca(): void
+    public function testAnUnreadableDirectoryDoesNotThrow(): void
     {
         $breaker = new CircuitBreaker(new FileStore('/dev/null/vulqen'), 'http://ingest/x');
         $breaker->recordFailure();
@@ -82,7 +82,7 @@ final class CircuitBreakerTest extends TestCase
         self::assertFalse($breaker->isOpen());
     }
 
-    public function testLimitWyjatkowNaOdcisk(): void
+    public function testTheExceptionLimitPerFingerprint(): void
     {
         $limiter = new ExceptionLimiter();
         $same = new \RuntimeException('a');

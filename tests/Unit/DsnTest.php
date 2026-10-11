@@ -10,9 +10,9 @@ use Vulqen\Sdk\Dsn;
 
 final class DsnTest extends TestCase
 {
-    public function testSkladaUrlIKlucz(): void
+    public function testComposesUrlAndKey(): void
     {
-        $dsn = Dsn::parse('https://vq_live_ab12cd34_sekret@Ingest.Vulqen.example/01926B3A-7C2E-7A1B-8F3E-1C2D3E4F5A6B');
+        $dsn = Dsn::parse('vulqen://vq_live_ab12cd34_sekret@Ingest.Vulqen.example/01926B3A-7C2E-7A1B-8F3E-1C2D3E4F5A6B');
 
         self::assertNotNull($dsn);
         self::assertSame('https://ingest.vulqen.example/api/v1/projects/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b/envelope', $dsn->endpoint);
@@ -21,15 +21,32 @@ final class DsnTest extends TestCase
         self::assertStringNotContainsString($dsn->key, $dsn->endpoint);
     }
 
-    public function testZachowujePort(): void
+    public function testInsecureYieldsHttpAndPort(): void
     {
+        $dsn = Dsn::parse('vulqen://vq_test_k@ingest.localhost:8100/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b?insecure');
+
+        self::assertNotNull($dsn);
+        self::assertSame(
+            'http://ingest.localhost:8100/api/v1/projects/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b/envelope',
+            $dsn->endpoint,
+        );
+        self::assertStringNotContainsString('insecure', $dsn->endpoint);
+        self::assertStringNotContainsString($dsn->key, $dsn->endpoint);
+    }
+
+    public function testTheOldSchemeStillYieldsTheSameEndpoint(): void
+    {
+        self::assertSame(
+            'https://ingest.vulqen.example/api/v1/projects/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b/envelope',
+            Dsn::parse('https://vq_live_ab12cd34_sekret@Ingest.Vulqen.example/01926B3A-7C2E-7A1B-8F3E-1C2D3E4F5A6B')?->endpoint,
+        );
         self::assertSame(
             'http://ingest.localhost:8100/api/v1/projects/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b/envelope',
             Dsn::parse('http://vq_test_k@ingest.localhost:8100/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b')?->endpoint,
         );
     }
 
-    public function testPustyDsnToNull(): void
+    public function testAnEmptyDsnIsNull(): void
     {
         self::assertNull(Dsn::parse(''));
         self::assertNull(Dsn::parse('  '));
@@ -37,7 +54,7 @@ final class DsnTest extends TestCase
     }
 
     #[DataProvider('invalid')]
-    public function testBlednyDsnRzuca(string $dsn): void
+    public function testABadDsnThrows(string $dsn): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
@@ -54,6 +71,8 @@ final class DsnTest extends TestCase
             'bez projektu' => ['https://key@ingest.vulqen.example/'],
             'projekt nie uuid' => ['https://key@ingest.vulqen.example/abc'],
             'zły schemat' => ['ftp://key@ingest.vulqen.example/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b'],
+            'obce query' => ['vulqen://key@ingest.vulqen.example/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b?foo'],
+            'insecure z wartością' => ['vulqen://key@ingest.vulqen.example/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b?insecure=1'],
             'śmieci' => ['nie dsn'],
         ];
     }

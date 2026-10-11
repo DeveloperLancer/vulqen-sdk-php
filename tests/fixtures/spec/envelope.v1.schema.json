@@ -111,6 +111,8 @@
                     "memory_peak_bytes": { "type": "integer", "minimum": 0 },
                     "cpu_ms": { "type": "number", "minimum": 0 },
                     "spans_truncated": { "type": "boolean" },
+                    "parent_span_id": { "$ref": "#/$defs/span_id" },
+                    "http.request.body": { "type": "string" },
                     "spans": { "type": "array", "items": { "$ref": "#/$defs/span" } }
                 },
                 "allOf": [
@@ -143,6 +145,7 @@
             "then": {
                 "required": ["period_start", "period_end", "transactions"],
                 "properties": {
+                    "id": { "$ref": "#/$defs/uuid" },
                     "period_start": { "$ref": "#/$defs/timestamp" },
                     "period_end": { "$ref": "#/$defs/timestamp" },
                     "transactions": {

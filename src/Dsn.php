@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Vulqen\Sdk;
 
 /**
- * DSN z dashboardu: scheme://klucz@host[:port]/<projectId> (20).
+ * DSN z dashboardu: vulqen://klucz@host[:port]/<projectId>[?insecure] (20, D-076).
+ * Brak query otwiera HTTPS. Query dokładnie `insecure` otwiera HTTP.
+ * Stare DSN http i https parser czyta tak jak dawniej.
  * Klucz idzie wyłącznie w nagłówku X-Vulqen-Key, nigdy w URL.
  */
 final class Dsn
@@ -36,8 +38,12 @@ final class Dsn
         }
 
         $scheme = strtolower($parts['scheme']);
-        if ($scheme !== 'http' && $scheme !== 'https') {
-            throw new \InvalidArgumentException('DSN Vulqen obsługuje tylko http i https.');
+        if ($scheme === 'vulqen') {
+            $transport = self::transportFromQuery($parts['query'] ?? null);
+        } elseif ($scheme === 'http' || $scheme === 'https') {
+            $transport = $scheme;
+        } else {
+            throw new \InvalidArgumentException('DSN Vulqen obsługuje schemat vulqen.');
         }
 
         $projectId = strtolower(trim($parts['path'], '/'));
@@ -54,10 +60,23 @@ final class Dsn
         $authority = $host.(isset($parts['port']) ? ':'.$parts['port'] : '');
 
         return new self(
-            sprintf('%s://%s/api/v1/projects/%s/envelope', $scheme, $authority, $projectId),
+            sprintf('%s://%s/api/v1/projects/%s/envelope', $transport, $authority, $projectId),
             $key,
             $projectId,
             $host,
         );
+    }
+
+    private static function transportFromQuery(?string $query): string
+    {
+        if ($query === null) {
+            return 'https';
+        }
+
+        if ($query === 'insecure') {
+            return 'http';
+        }
+
+        throw new \InvalidArgumentException('DSN Vulqen przyjmuje tylko query insecure.');
     }
 }

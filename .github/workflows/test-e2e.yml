@@ -44,7 +44,23 @@ jobs:
         working-directory: .server/vulqen
         run: |
           echo "127.0.0.1 ingest.localhost" | sudo tee -a /etc/hosts
-          $COMPOSE up -d --build
+          for service in mysql redis clickhouse mailpit nginx; do
+            attempt=0
+            while true; do
+              if $COMPOSE pull "$service"; then
+                sleep 1
+                break
+              fi
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 5 ]; then
+                echo "Nie udało się pobrać ${service}." >&2
+                exit 1
+              fi
+              echo "Pull ${service} odrzucony, czekam $((attempt * 3))s." >&2
+              sleep $((attempt * 3))
+            done
+          done
+          $COMPOSE up -d --build --pull never
           for i in $(seq 1 90); do
             if $COMPOSE exec -T php php bin/console about >/dev/null 2>&1; then break; fi
             sleep 5

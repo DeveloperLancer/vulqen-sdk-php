@@ -14,7 +14,7 @@ use Vulqen\Sdk\Tests\Support\Spec;
 final class SpecFixturesTest extends TestCase
 {
     #[DataProvider('validFixtures')]
-    public function testPoprawnyFixturePrzechodzi(string $file): void
+    public function testAValidFixturePasses(string $file): void
     {
         $violations = Spec::violations(self::load($file));
 
@@ -22,7 +22,7 @@ final class SpecFixturesTest extends TestCase
     }
 
     #[DataProvider('invalidFixtures')]
-    public function testBlednyFixturePada(string $file): void
+    public function testAnInvalidFixtureFails(string $file): void
     {
         self::assertNotNull(Spec::violations(self::load($file)), basename($file).' powinien paść.');
     }

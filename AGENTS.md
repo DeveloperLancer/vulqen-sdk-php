@@ -19,6 +19,7 @@ Paczka powstaje jako szkielet w Fazie 1. Wysyłka i model zdarzeń wchodzą w Fa
 
 ## Zasady
 
+- Identyfikatory w kodzie, nazwy testów i komentarze w nowym kodzie są po angielsku, w ASCII ([D-077](../vulqen-docs/plan/09-rejestr-decyzji.md)).
 - Żadna metoda publiczna nie wypuszcza `\Throwable` do hosta.
 - SDK nie instrumentuje własnego wywołania na ingest. To ograniczenie egzekwuje bundle; SDK nie dokleja śladu do transportu.
 - Zmiana pól JSON zaczyna się w `vulqen-docs` i w `vulqen/spec`, a serwer je przyjmuje, zanim ta paczka zacznie je wysyłać.

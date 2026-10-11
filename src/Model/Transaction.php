@@ -26,6 +26,7 @@ final class Transaction
     private ?float $cpuMs = null;
     private ?float $durationMs = null;
     private bool $spansTruncated = false;
+    private ?string $requestBody = null;
 
     /** @var list<Span> */
     private array $spans = [];
@@ -35,9 +36,13 @@ final class Transaction
         public readonly string $op,
         public readonly float $startedAt,
         private readonly int $maxSpans,
+        private readonly bool $sampled = true,
+        private readonly ?string $parentSpanId = null,
+        private readonly bool $parentUnsampled = false,
+        ?string $traceId = null,
     ) {
         $this->id = Ids::uuid7($startedAt);
-        $this->traceId = Ids::traceId();
+        $this->traceId = $traceId ?? Ids::traceId();
         $this->spanId = Ids::spanId();
     }
 
@@ -113,6 +118,41 @@ final class Transaction
         return $this->durationMs !== null;
     }
 
+    public function durationMs(): float
+    {
+        return $this->durationMs ?? 0.0;
+    }
+
+    /**
+     * Pełny ślad schodzi, gdy los ze startu wygrał, wynik jest błędem albo czas przekroczył próg.
+     * Dziecko z flagą 00 nie losuje własnego śladu. Wyłączone ślady nie schodzą wcale.
+     */
+    public function shouldSend(bool $tracesEnabled, int $slowMs): bool
+    {
+        if (!$tracesEnabled) {
+            return false;
+        }
+        if ($this->outcome === self::OUTCOME_ERROR || $this->durationMs() > $slowMs) {
+            return true;
+        }
+
+        return $this->sampled && !$this->parentUnsampled;
+    }
+
+    public function traceparent(): string
+    {
+        $sampled = $this->sampled && !$this->parentUnsampled;
+
+        return sprintf('00-%s-%s-%s', $this->traceId, $this->spanId, $sampled ? '01' : '00');
+    }
+
+    public function setRequestBody(?string $body): void
+    {
+        if ($body !== null && $body !== '') {
+            $this->requestBody = $body;
+        }
+    }
+
     /**
      * @return list<Span>
      */
@@ -151,6 +191,12 @@ final class Transaction
         }
         if ($this->cpuMs !== null) {
             $item['cpu_ms'] = round($this->cpuMs, 3);
+        }
+        if ($this->parentSpanId !== null) {
+            $item['parent_span_id'] = $this->parentSpanId;
+        }
+        if ($this->requestBody !== null) {
+            $item['http.request.body'] = $this->requestBody;
         }
         $item['spans_truncated'] = $this->spansTruncated;
         $item['spans'] = array_map(static fn (Span $span): array => $span->toArray(), $this->spans);

@@ -20,7 +20,7 @@ use Vulqen\Sdk\Transport\TransportResult;
 #[Group('e2e')]
 final class IngestE2eTest extends TestCase
 {
-    public function testSerwerPrzyjmujeEnvelopeZSdk(): void
+    public function testTheServerAcceptsAnEnvelopeFromTheSdk(): void
     {
         $dsn = (string) getenv('VULQEN_E2E_DSN');
         if ($dsn === '') {

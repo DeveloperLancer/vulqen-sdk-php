@@ -28,12 +28,20 @@ final class Client
 
     private ?Transaction $transaction = null;
 
+    /** @var list<Transaction> */
+    private array $paused = [];
+
     /** @var list<Transaction|ErrorEvent> */
     private array $pending = [];
+
+    private StatsBuffer $stats;
+
+    private bool $processSampled = true;
 
     public function __construct(private readonly Options $options)
     {
         $this->limiter = new ExceptionLimiter();
+        $this->stats = new StatsBuffer();
         try {
             $this->dsn = Dsn::parse($options->dsn);
             if ($this->dsn === null) {
@@ -44,6 +52,10 @@ final class Client
             $this->breaker = new CircuitBreaker($store, $this->dsn->endpoint);
             $this->config = new RemoteConfig($store, $this->dsn->endpoint, $options->maxSpans);
             $this->serializer = new EnvelopeSerializer($options);
+            $this->processSampled = Sampler::decide($this->config->sampleRate());
+            register_shutdown_function(function (): void {
+                $this->flush(true);
+            });
         } catch (\Throwable $e) {
             $this->dsn = null;
             $this->debug('Vulqen wyłączony: {error}', $e);
@@ -63,18 +75,42 @@ final class Client
         return $this->dsn?->host;
     }
 
-    public function startTransaction(string $name, string $op, ?float $startedAt = null): ?Transaction
+    public function startTransaction(string $name, string $op, ?float $startedAt = null, ?string $traceparent = null): ?Transaction
     {
         if ($this->dsn === null) {
             return null;
         }
         try {
-            return $this->transaction = new Transaction($name, $op, $startedAt ?? microtime(true), $this->config?->maxSpans() ?? $this->options->maxSpans);
+            $parent = Traceparent::parse($traceparent);
+            $parentUnsampled = $parent !== null && !$parent->sampled;
+            $created = new Transaction(
+                $name,
+                $op,
+                $startedAt ?? microtime(true),
+                $this->config?->maxSpans() ?? $this->options->maxSpans,
+                $parent === null ? $this->processSampled : $parent->sampled,
+                $parent?->spanId,
+                $parentUnsampled,
+                $parent?->traceId,
+            );
+            if ($this->transaction !== null) {
+                $this->paused[] = $this->transaction;
+            }
+
+            return $this->transaction = $created;
         } catch (\Throwable $e) {
             $this->debug('Vulqen startTransaction: {error}', $e);
 
             return null;
         }
+    }
+
+    /**
+     * traceparent bieżącej transakcji. Flaga sampled jest decyzją ze startu.
+     */
+    public function traceparent(): ?string
+    {
+        return $this->transaction?->traceparent();
     }
 
     public function transaction(): ?Transaction
@@ -91,6 +127,17 @@ final class Client
             return null;
         }
         try {
+            if ($op === 'db.query' && $this->config?->sqlEnabled() === false) {
+                return null;
+            }
+            if (!$this->config?->sqlBindings()) {
+                unset($attrs['db.bindings']);
+            } elseif (isset($attrs['db.bindings'])) {
+                $bindings = $attrs['db.bindings'];
+                $text = is_string($bindings) ? $bindings : (string) json_encode($bindings, JSON_THROW_ON_ERROR);
+                $attrs['db.bindings'] = Scrubber::scrub($text);
+            }
+
             return $this->transaction->startSpan($op, $description, $attrs);
         } catch (\Throwable $e) {
             $this->debug('Vulqen startSpan: {error}', $e);
@@ -137,33 +184,52 @@ final class Client
         }
     }
 
+    public function setRequestBody(?string $body): void
+    {
+        if ($this->transaction === null || $this->config?->requestBody() !== true || $body === null || $body === '') {
+            return;
+        }
+        try {
+            $this->transaction->setRequestBody(substr(Scrubber::scrub(substr($body, 0, 16384)), 0, 8192));
+        } catch (\Throwable $e) {
+            $this->debug('Vulqen setRequestBody: {error}', $e);
+        }
+    }
+
     public function finishTransaction(): void
     {
         try {
             if ($this->transaction !== null) {
+                $fresh = !$this->transaction->isFinished();
                 $this->transaction->finish();
-                $this->pending[] = $this->transaction;
+                if ($fresh) {
+                    $this->stats->record($this->transaction);
+                    if ($this->transaction->shouldSend($this->config?->tracesEnabled() ?? true, $this->config?->slowMs() ?? 2000)) {
+                        $this->pending[] = $this->transaction;
+                    }
+                }
             }
         } catch (\Throwable $e) {
             $this->debug('Vulqen finishTransaction: {error}', $e);
         } finally {
-            $this->transaction = null;
+            $this->transaction = array_pop($this->paused) ?: null;
         }
     }
 
     public function discardTransaction(): void
     {
-        $this->transaction = null;
+        $this->transaction = array_pop($this->paused) ?: null;
     }
 
     /**
-     * Wysyła zakończone zdarzenia. Otwarty obwód porzuca je bez sieci. Po odpowiedzi HTTP nie ma ponowienia.
+     * Wysyła pełne ślady. Liczniki schodzą razem z nimi, co 10 sekund albo przy końcu procesu.
+     * Otwarty obwód i 429 porzucają ślady, a liczniki zostają do następnej udanej odpowiedzi.
      */
-    public function flush(): void
+    public function flush(bool $forceStats = false): void
     {
         $pending = $this->pending;
         $this->pending = [];
-        if ($pending === [] || $this->dsn === null || $this->transport === null || $this->breaker === null || $this->serializer === null) {
+        if ($this->dsn === null || $this->transport === null || $this->breaker === null || $this->serializer === null) {
             return;
         }
 
@@ -172,37 +238,60 @@ final class Client
             if ($this->breaker->isOpen($now)) {
                 return;
             }
-            foreach ($this->serializer->envelopes($this->encode($pending), $now) as $envelope) {
+            $attachStats = $pending !== [] || $this->stats->due($now, $forceStats);
+            $stats = $attachStats ? $this->stats->pull($now) : null;
+            if ($pending === [] && $stats === null) {
+                return;
+            }
+
+            $encoded = $this->encode($pending);
+            if ($stats !== null) {
+                $encoded[] = EnvelopeSerializer::encodeItem($stats);
+            }
+            if ($encoded === []) {
+                $this->stats->restore();
+
+                return;
+            }
+
+            foreach ($this->serializer->envelopes($encoded, $now) as $envelope) {
                 $result = $this->transport->send($this->dsn, $envelope);
                 if ($result->rateLimited()) {
+                    $this->stats->restore();
                     $this->breaker->openFor($result->retryAfter);
 
                     return;
                 }
                 if ($result->serverFailed()) {
+                    $this->stats->restore();
                     $this->breaker->recordFailure();
                     $this->debug('Vulqen ingest nie odpowiedział: {error}', null, ['error' => $result->error ?? 'HTTP '.$result->status]);
 
                     return;
                 }
                 $this->breaker->recordSuccess();
-                if ($result->accepted()) {
-                    $this->config?->remember($result->config);
-                } else {
+                if (!$result->accepted()) {
+                    $this->stats->restore();
                     $this->debug('Vulqen ingest odrzucił envelope: HTTP {status}', null, ['status' => $result->status]);
+
+                    return;
                 }
+                $this->config?->remember($result->config);
             }
+            $this->stats->commit();
         } catch (\Throwable $e) {
+            $this->stats->restore();
             $this->debug('Vulqen flush: {error}', $e);
         }
     }
 
     /**
-     * Czyści stan między żądaniami procesu długo żyjącego (R-005). Limiter wyjątków zostaje.
+     * Czyści transakcję i ślady oczekujące. Liczniki procesu zostają (worker żyje dłużej niż jedna wiadomość).
      */
     public function reset(): void
     {
         $this->transaction = null;
+        $this->paused = [];
         $this->pending = [];
     }
 

@@ -16,9 +16,9 @@ use Vulqen\Sdk\Transport\TransportResult;
 
 final class ClientTest extends TestCase
 {
-    private const DSN = 'http://vq_test_key@ingest.localhost:8100/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b';
+    private const DSN = 'vulqen://vq_test_key@ingest.localhost:8100/01926b3a-7c2e-7a1b-8f3e-1c2d3e4f5a6b?insecure';
 
-    public function testPustyDsnNicNieRobi(): void
+    public function testAnEmptyDsnDoesNothing(): void
     {
         $transport = new RecordingTransport();
         $client = new Client(new Options(dsn: '', transport: $transport));
@@ -33,7 +33,7 @@ final class ClientTest extends TestCase
         self::assertSame([], $transport->sent);
     }
 
-    public function testBlednyDsnWylaczaBezWyjatku(): void
+    public function testABadDsnDisablesWithoutAnException(): void
     {
         $logger = new class extends AbstractLogger {
             /** @var list<string> */
@@ -51,7 +51,7 @@ final class ClientTest extends TestCase
         self::assertCount(1, $logger->messages);
     }
 
-    public function testTransakcjaZeSpanemIWyjatkiemWJednymEnvelope(): void
+    public function testATransactionWithASpanAndAnExceptionInOneEnvelope(): void
     {
         $transport = new RecordingTransport();
         $client = $this->client($transport);
@@ -81,7 +81,7 @@ final class ClientTest extends TestCase
         self::assertNull($client->transaction());
     }
 
-    public function testTrzyPorazkiOtwierajaObwodIPorzucajaBezSieci(): void
+    public function testThreeFailuresOpenTheCircuitAndDropWithoutTheNetwork(): void
     {
         $transport = new RecordingTransport(
             TransportResult::noResponse('refused'),
@@ -99,7 +99,7 @@ final class ClientTest extends TestCase
         self::assertCount(3, $transport->sent);
     }
 
-    public function test429OtwieraObwodBezPonowienia(): void
+    public function test429OpensTheCircuitWithoutARetry(): void
     {
         $transport = new RecordingTransport(new TransportResult(429, 30));
         $client = $this->client($transport);
@@ -113,7 +113,7 @@ final class ClientTest extends TestCase
         self::assertCount(1, $transport->sent);
     }
 
-    public function testConfigZ202UstawiaMaxSpansNastepnejTransakcji(): void
+    public function testConfigFrom202SetsMaxSpansOnTheNextTransaction(): void
     {
         $store = new MemoryStore();
         $transport = new RecordingTransport(new TransportResult(202, null, ['version' => 1, 'max_spans' => 2]));
@@ -133,7 +133,7 @@ final class ClientTest extends TestCase
         self::assertCount(2, $transaction->spans());
     }
 
-    public function testWyjatekTransportuNieWychodzi(): void
+    public function testATransportExceptionDoesNotEscape(): void
     {
         $client = $this->client(new RecordingTransport(new \Error('transport padł')));
 
@@ -144,7 +144,7 @@ final class ClientTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testResetCzysciStanMiedzyZadaniami(): void
+    public function testResetClearsStateBetweenRequests(): void
     {
         $transport = new RecordingTransport();
         $client = $this->client($transport);
@@ -159,13 +159,16 @@ final class ClientTest extends TestCase
         $client->flush();
 
         self::assertCount(1, $transport->sent);
-        $items = $transport->envelope(0)['items'];
+        $items = array_values(array_filter(
+            $transport->envelope(0)['items'],
+            static fn (array $item): bool => $item['type'] === 'transaction',
+        ));
         self::assertCount(1, $items);
         self::assertSame('drugie', $items[0]['name']);
         self::assertSame([], $items[0]['spans']);
     }
 
-    public function testPorzuconaTransakcjaNieJestWysylana(): void
+    public function testADiscardedTransactionIsNotSent(): void
     {
         $transport = new RecordingTransport();
         $client = $this->client($transport);
