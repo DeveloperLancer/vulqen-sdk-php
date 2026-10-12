@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/brand/logo-lockup.svg" width="420" alt="Vulqen">
+</p>
+
 # vulqen/php-sdk
 
 Rdzeń zbierania zdarzeń, bez Symfony. Paczka Composer: `vulqen/php-sdk`.
