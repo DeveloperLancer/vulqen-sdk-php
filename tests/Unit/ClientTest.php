@@ -168,6 +168,28 @@ final class ClientTest extends TestCase
         self::assertSame([], $items[0]['spans']);
     }
 
+    public function testAMetricAndACheckInFitTheSchema(): void
+    {
+        $transport = new RecordingTransport();
+        $client = $this->client($transport);
+
+        $client->captureMetric('phpfpm.max_children_reached', 'counter', 4, ['pool' => 'www']);
+        $client->captureCheckIn('app:cron', 'in_progress', null, 60);
+        $client->flush();
+
+        self::assertCount(1, $transport->sent);
+        $document = json_decode($transport->sent[0]);
+        self::assertInstanceOf(\stdClass::class, $document);
+        self::assertNull(Spec::violations($document));
+        $items = $transport->envelope(0)['items'];
+        self::assertSame('metric', $items[0]['type']);
+        self::assertEquals(4.0, $items[0]['value']);
+        self::assertSame('www', $items[0]['attrs']['pool']);
+        self::assertSame('check_in', $items[1]['type']);
+        self::assertSame('in_progress', $items[1]['status']);
+        self::assertSame(60, $items[1]['interval_seconds']);
+    }
+
     public function testADiscardedTransactionIsNotSent(): void
     {
         $transport = new RecordingTransport();

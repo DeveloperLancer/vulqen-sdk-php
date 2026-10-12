@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vulqen\Sdk;
 
+use Vulqen\Sdk\Model\CapturedItem;
 use Vulqen\Sdk\Model\ErrorEvent;
 use Vulqen\Sdk\Model\ExceptionData;
 use Vulqen\Sdk\Model\Span;
@@ -31,7 +32,7 @@ final class Client
     /** @var list<Transaction> */
     private array $paused = [];
 
-    /** @var list<Transaction|ErrorEvent> */
+    /** @var list<Transaction|ErrorEvent|CapturedItem> */
     private array $pending = [];
 
     private StatsBuffer $stats;
@@ -156,8 +157,54 @@ final class Client
     }
 
     /**
-     * Zwraca identyfikator zdarzenia albo null, gdy SDK jest wyłączone albo odcisk przekroczył limit.
+     * @param array<string, string|int|float|bool> $attrs
      */
+    public function captureMetric(string $name, string $kind, float $value, array $attrs = [], ?float $at = null): void
+    {
+        if ($this->dsn === null || $name === '' || ($kind !== 'gauge' && $kind !== 'counter')) {
+            return;
+        }
+        try {
+            $payload = [
+                'type' => 'metric',
+                'name' => $name,
+                'kind' => $kind,
+                'value' => $value,
+                'at' => Timestamp::format($at ?? microtime(true)),
+            ];
+            if ($attrs !== []) {
+                $payload['attrs'] = $attrs;
+            }
+            $this->pending[] = new CapturedItem($payload);
+        } catch (\Throwable $e) {
+            $this->debug('Vulqen captureMetric: {error}', $e);
+        }
+    }
+
+    public function captureCheckIn(string $monitor, string $status, ?float $durationMs = null, ?int $intervalSeconds = null, ?float $at = null): void
+    {
+        if ($this->dsn === null || $monitor === '' || ($status !== 'ok' && $status !== 'error' && $status !== 'in_progress')) {
+            return;
+        }
+        try {
+            $payload = [
+                'type' => 'check_in',
+                'monitor' => $monitor,
+                'status' => $status,
+                'at' => Timestamp::format($at ?? microtime(true)),
+            ];
+            if ($durationMs !== null && $durationMs >= 0) {
+                $payload['duration_ms'] = $durationMs;
+            }
+            if ($intervalSeconds !== null && $intervalSeconds >= 1) {
+                $payload['interval_seconds'] = $intervalSeconds;
+            }
+            $this->pending[] = new CapturedItem($payload);
+        } catch (\Throwable $e) {
+            $this->debug('Vulqen captureCheckIn: {error}', $e);
+        }
+    }
+
     public function captureException(\Throwable $throwable): ?string
     {
         if ($this->dsn === null) {
@@ -296,7 +343,7 @@ final class Client
     }
 
     /**
-     * @param list<Transaction|ErrorEvent> $items
+     * @param list<Transaction|ErrorEvent|CapturedItem> $items
      *
      * @return list<string>
      *
