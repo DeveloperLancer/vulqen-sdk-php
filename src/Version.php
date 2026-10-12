@@ -9,5 +9,5 @@ namespace Vulqen\Sdk;
  */
 final class Version
 {
-    public const NUMBER = '0.2.0';
+    public const NUMBER = '0.3.0';
 }

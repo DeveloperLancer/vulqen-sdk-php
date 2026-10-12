@@ -2,6 +2,15 @@
 
 Format z [05-repozytoria-i-wydania.md](https://github.com/DeveloperLancer/vulqen-docs/blob/main/plan/05-repozytoria-i-wydania.md): po co zmiana i czy upgrade wymaga kroku.
 
+## 0.3.0
+
+Agent i harmonogram Schedulera mogą wysłać metrykę hosta i check-in bez dokładania własnego JSON (Faza 10).
+
+- `Client::captureMetric()` i `Client::captureCheckIn()` dokładają elementy `metric` i `check_in` do tego samego `flush`. Zła nazwa albo status są porzucane. Wyjątek z SDK nie wychodzi.
+- `sdk.version` w domyślnym envelope to `0.3.0`.
+
+Kroki przy upgrade: serwer, który zapisuje elementy `metric` i `check_in`. Bundle wołający te metody wymaga `vulqen/php-sdk` `^0.3`.
+
 ## 0.2.0
 
 Licznik każdej transakcji schodzi zawsze, a pełny ślad tylko z próbki, z błędu albo z progu czasu (Faza 7).
