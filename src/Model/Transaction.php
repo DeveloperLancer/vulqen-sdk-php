@@ -27,6 +27,7 @@ final class Transaction
     private ?float $durationMs = null;
     private bool $spansTruncated = false;
     private ?string $requestBody = null;
+    private bool $apiPlatform = false;
 
     /** @var list<Span> */
     private array $spans = [];
@@ -93,6 +94,18 @@ final class Transaction
     public function setHttpStatus(int $status): void
     {
         $this->httpStatus = $status;
+    }
+
+    public function setApiPlatform(bool $apiPlatform): void
+    {
+        if ($this->op === self::OP_HTTP) {
+            $this->apiPlatform = $apiPlatform;
+        }
+    }
+
+    public function isApiPlatform(): bool
+    {
+        return $this->op === self::OP_HTTP && $this->apiPlatform;
     }
 
     public function setResources(?int $memoryPeakBytes, ?float $cpuMs): void
@@ -185,6 +198,9 @@ final class Transaction
         ];
         if ($this->op === self::OP_HTTP) {
             $item['http_status'] = $this->httpStatus !== null && $this->httpStatus >= 100 && $this->httpStatus <= 599 ? $this->httpStatus : 500;
+            if ($this->apiPlatform) {
+                $item['api_platform'] = true;
+            }
         }
         if ($this->memoryPeakBytes !== null) {
             $item['memory_peak_bytes'] = $this->memoryPeakBytes;

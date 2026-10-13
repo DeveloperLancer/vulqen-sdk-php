@@ -18,7 +18,7 @@ final class StatsBuffer
     private const UPPER_BOUNDS = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
 
     /**
-     * @var array<string, array{name: string, op: string, outcome: string, count: int, duration: float, buckets: list<int>}>
+     * @var array<string, array{name: string, op: string, outcome: string, api_platform: bool, count: int, duration: float, buckets: list<int>}>
      */
     private array $series = [];
 
@@ -26,17 +26,19 @@ final class StatsBuffer
 
     private ?float $periodStart = null;
 
-    /** @var array{id: string, period_start: float, series: array<string, array{name: string, op: string, outcome: string, count: int, duration: float, buckets: list<int>}>}|null */
+    /** @var array{id: string, period_start: float, series: array<string, array{name: string, op: string, outcome: string, api_platform: bool, count: int, duration: float, buckets: list<int>}>}|null */
     private ?array $inflight = null;
 
     public function record(Transaction $transaction): void
     {
         $duration = $transaction->durationMs();
-        $key = $transaction->name()."\0".$transaction->op."\0".$transaction->outcome();
+        $apiPlatform = $transaction->isApiPlatform();
+        $key = $transaction->name()."\0".$transaction->op."\0".$transaction->outcome()."\0".($apiPlatform ? '1' : '0');
         $row = $this->series[$key] ?? [
             'name' => $transaction->name(),
             'op' => $transaction->op,
             'outcome' => $transaction->outcome(),
+            'api_platform' => $apiPlatform,
             'count' => 0,
             'duration' => 0.0,
             'buckets' => array_fill(0, 10, 0),
@@ -115,7 +117,7 @@ final class StatsBuffer
     }
 
     /**
-     * @param array{id: string, period_start: float, series: array<string, array{name: string, op: string, outcome: string, count: int, duration: float, buckets: list<int>}>} $held
+     * @param array{id: string, period_start: float, series: array<string, array{name: string, op: string, outcome: string, api_platform: bool, count: int, duration: float, buckets: list<int>}>} $held
      *
      * @return array<string, mixed>
      */
@@ -123,7 +125,7 @@ final class StatsBuffer
     {
         $transactions = [];
         foreach ($held['series'] as $row) {
-            $transactions[] = [
+            $entry = [
                 'name' => $row['name'],
                 'op' => $row['op'],
                 'outcome' => $row['outcome'],
@@ -131,6 +133,10 @@ final class StatsBuffer
                 'duration_ms_sum' => round($row['duration'], 3),
                 'buckets' => $row['buckets'],
             ];
+            if ($row['op'] === Transaction::OP_HTTP && $row['api_platform']) {
+                $entry['api_platform'] = true;
+            }
+            $transactions[] = $entry;
         }
 
         return [

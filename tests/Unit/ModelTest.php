@@ -52,6 +52,13 @@ final class ModelTest extends TestCase
         $http->finish(1_791_462_122.0);
 
         self::assertSame(500, $http->toArray()['http_status']);
+        self::assertArrayNotHasKey('api_platform', $http->toArray());
+
+        $http->setApiPlatform(true);
+        self::assertTrue($http->toArray()['api_platform']);
+
+        $command->setApiPlatform(true);
+        self::assertArrayNotHasKey('api_platform', $command->toArray());
     }
 
     public function testEmptyAttrsIsAJsonObject(): void

@@ -190,6 +190,30 @@ final class SamplingTest extends TestCase
         self::assertSame(1, $transport->envelope(0)['items'][0]['transactions'][0]['count']);
     }
 
+    public function testApiPlatformSplitsTheCounterFromTheSameRouteName(): void
+    {
+        $transport = new RecordingTransport();
+        $client = $this->client($transport, ['sample_rate' => 0]);
+
+        $api = $client->startTransaction('telemetry_overview', Transaction::OP_HTTP);
+        self::assertNotNull($api);
+        $api->setApiPlatform(true);
+        $client->finishTransaction();
+        $client->startTransaction('telemetry_overview', Transaction::OP_HTTP);
+        $client->finishTransaction();
+        $client->flush(true);
+
+        $rows = $transport->envelope(0)['items'][0]['transactions'];
+        self::assertCount(2, $rows);
+        $flagged = array_values(array_filter($rows, static fn (array $row): bool => ($row['api_platform'] ?? false) === true));
+        $plain = array_values(array_filter($rows, static fn (array $row): bool => !isset($row['api_platform'])));
+        self::assertCount(1, $flagged);
+        self::assertCount(1, $plain);
+        self::assertSame(1, $flagged[0]['count']);
+        self::assertSame(1, $plain[0]['count']);
+        self::assertNull(Spec::violations(json_decode($transport->sent[0])));
+    }
+
     /**
      * @param array<string, mixed> $config
      */
